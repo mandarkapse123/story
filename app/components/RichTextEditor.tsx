@@ -248,7 +248,7 @@ export default function RichTextEditor({
 
       {/* RIGHT SIDEBAR: PANEL INSPECTOR (Hides in Focus Mode) */}
       {!isFocusMode && (
-        <div className="w-full xl:w-76 shrink-0 flex flex-col gap-6">
+        <div className="hidden xl:flex w-full xl:w-76 shrink-0 flex-col gap-6">
           
           {/* Goal Tracker Widget */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm">

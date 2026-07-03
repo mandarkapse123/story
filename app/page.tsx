@@ -3,89 +3,20 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import WorkspaceLayout from './components/WorkspaceLayout';
 import { Project, UserProfile } from './types';
-import { PenTool, Sparkles } from 'lucide-react';
+import { PenTool } from 'lucide-react';
 
 const STORAGE_KEY = 'storyforge_projects_v2';
 const AUTH_KEY = 'storyforge_auth_v2';
 const PROFILE_KEY = 'storyforge_profile_v2';
 
 const DEFAULT_PROFILE: UserProfile = {
-  name: "Alex Mercer",
-  penName: "A. M. Crimson",
-  email: "alex@storyforge.com",
-  bio: "Creative writer exploring speculative sci-fi and tech-thrillers."
+  name: "",
+  penName: "",
+  email: "",
+  bio: ""
 };
 
-const DEFAULT_PROJECTS: Project[] = [
-  {
-    id: '1',
-    title: 'The Quantum Paradox',
-    type: 'Book',
-    updatedAt: '2 hours ago',
-    wordGoal: 50000,
-    dailyGoal: 1000,
-    chapters: [
-      { 
-        id: 'chap-1', 
-        title: 'The Awakening', 
-        words: 2450, 
-        content: `<h1>Chapter 1: The Awakening</h1>
-<p>The stellar engine hummed with a low, rhythmic vibration. Elena adjusted the dials on her console, her eyes strained by the neon glare of the warp core sensors.</p>
-<p>Suddenly, the proximity warning flashed red. A distress signal was piercing through the static of the empty sector, carrying a digital signature she hadn't seen in a decade.</p>
-<p>"Vance," she muttered, tapping her com-link. "We have a problem."</p>` 
-      },
-      { 
-        id: 'chap-2', 
-        title: 'A Meeting in the Dark', 
-        words: 1120, 
-        content: `<h1>Chapter 2: A Meeting in the Dark</h1>
-<p>Captain Vance was waiting in the galley, holding a mug of lukewarm synth-coffee. Jax sat opposite him, looking tense and keeping a hand close to his holster.</p>
-<p>"She says it's an old signal," Vance said, his voice gravelly. "From the derelict sector. We're heading in."</p>` 
-      },
-      { 
-        id: 'chap-3', 
-        title: 'Echoes of the Past', 
-        words: 890, 
-        content: `<h1>Chapter 3: Echoes of the Past</h1>
-<p>The derelict ship loomed outside the viewport, a silent monument to the war. Lyra checked the life support readings, her fingers flying across the auxiliary controls.</p>` 
-      }
-    ],
-    characters: [
-      { id: 'c-1', name: 'Elena', role: 'Protagonist', description: 'A brilliant but cynical starship engineer.', avatarColor: 'bg-emerald-500', bio: 'Born on the outer rim, Elena spent her childhood repairing junked skiffs. She trusts machines more than people.', archetype: 'The Specialist' },
-      { id: 'c-2', name: 'Jax', role: 'Antagonist', description: 'Ruthless commander of the opposing fleet.', avatarColor: 'bg-rose-500', bio: 'A decorated veteran who believes the ends justify the means. Seeking the anomaly at all costs.', archetype: 'The Zealot' },
-      { id: 'c-3', name: 'Captain Vance', role: 'Supporting', description: 'World-weary captain of the starship Wanderer.', avatarColor: 'bg-amber-500', bio: 'A former naval officer who went rogue to protect his crew. Has a soft spot for Elena.', archetype: 'The Veteran' }
-    ],
-    plotBeats: [
-      { id: 'pb-1', title: 'The Distress Signal', type: 'Inciting Incident', description: 'Elena receives a strange transmission from the edge of the galaxy.' },
-      { id: 'pb-2', title: 'Assembling the Crew', type: 'Act 1', description: 'They must find a pilot crazy enough to fly into the anomaly.' }
-    ],
-    researchNotes: [
-      { id: 'r-1', topic: 'Warp Anomaly Theory', note: 'Based on Alcubierre metrics. Requires negative energy density. In-universe, the anomaly bends time and space.', source: 'Space Academy Database', date: '2026-06-25' },
-      { id: 'r-2', topic: 'Derelict Ship Layout', note: 'Visual references: Gothic industrial arches, rusted hydraulic piping, and high-ceiling vaulted storage bays.', source: 'Salvager Logistics Log', date: '2026-06-28' }
-    ]
-  },
-  {
-    id: '2',
-    title: 'Building SaaS in 2026',
-    type: 'Article',
-    updatedAt: '2 days ago',
-    wordGoal: 2500,
-    dailyGoal: 500,
-    chapters: [
-      { 
-        id: 'chap-2-1', 
-        title: 'Introduction', 
-        words: 650, 
-        content: `<h1>Building SaaS in 2026</h1>
-<p>In 2026, building a software-as-a-service application is faster yet more competitive than ever. Developers are leveraging AI agents, serverless edge architectures, and real-time database syncing to build complex features in hours rather than months.</p>
-<p>In this article, we outline the primary pillars of modern SaaS development and how to position your application for visual excellence and optimal performance.</p>` 
-      }
-    ],
-    characters: [],
-    plotBeats: [],
-    researchNotes: []
-  }
-];
+const DEFAULT_PROJECTS: Project[] = [];
 
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -96,6 +27,7 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [isSwitchingProfile, setIsSwitchingProfile] = useState(false);
 
   // Login Form input states
   const [loginEmail, setLoginEmail] = useState("");
@@ -215,12 +147,22 @@ export default function Home() {
       email: loginEmail.trim(),
       bio: profile.bio || "Speculative fiction writer."
     });
+    setIsSwitchingProfile(false);
     setIsLoggedIn(true);
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
     setActiveProjectId(null);
+  };
+
+  const handleSwitchProfile = () => {
+    localStorage.removeItem(PROFILE_KEY);
+    setProfile(DEFAULT_PROFILE);
+    setLoginName("");
+    setLoginPenName("");
+    setLoginEmail("");
+    setIsSwitchingProfile(true);
   };
 
   const activeProject = projects.find(p => p.id === activeProjectId) || null;
@@ -238,8 +180,10 @@ export default function Home() {
 
   // SIMULATED LOGIN PAGE
   if (!isLoggedIn) {
+    const hasExistingProfile = profile.name && profile.name.trim().length > 0;
+    
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 relative overflow-hidden font-sans">
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 relative overflow-hidden font-sans select-none transition-colors duration-200">
         {/* Neon Background mesh */}
         <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-violet-600/10 rounded-full blur-[100px] pointer-events-none" />
@@ -250,58 +194,100 @@ export default function Home() {
             <div className="h-12 w-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-4">
               <PenTool className="text-white" size={24} />
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-205 to-violet-400 bg-clip-text text-transparent">StoryForge</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-200 to-violet-400 bg-clip-text text-transparent">StoryForge</h1>
             <p className="text-slate-400 text-xs mt-1.5 font-medium uppercase tracking-widest">Where masterpieces are forged</p>
           </div>
 
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Your Real Name</label>
-              <input 
-                type="text" 
-                placeholder="e.g. Alex Mercer"
-                value={loginName}
-                onChange={(e) => setLoginName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
-                required
-              />
+          {hasExistingProfile && !isSwitchingProfile ? (
+            /* Welcome Back Card */
+            <div className="text-center space-y-6">
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-16 w-16 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xl font-bold uppercase shadow-md shadow-indigo-550/20">
+                  {profile.penName.substring(0, 2) || "W"}
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-400">Welcome Back</h2>
+                  <p className="text-lg font-bold text-slate-100 mt-0.5">{profile.penName}</p>
+                  <span className="text-[10px] text-slate-500 font-medium">{profile.email}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={() => setIsLoggedIn(true)}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-md shadow-indigo-550/10 cursor-pointer block text-center"
+                >
+                  Enter Writing Studio
+                </button>
+                <button
+                  onClick={handleSwitchProfile}
+                  className="w-full bg-slate-800 hover:bg-slate-700/80 text-slate-300 font-semibold text-xs py-3 rounded-xl transition-all cursor-pointer block text-center"
+                >
+                  Sign in as another writer
+                </button>
+              </div>
             </div>
+          ) : (
+            /* Sign Up Registration Form */
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Your Real Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Samuel Clemens"
+                  value={loginName}
+                  onChange={(e) => setLoginName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Pen Name (Pseudonym)</label>
-              <input 
-                type="text" 
-                placeholder="e.g. A. M. Crimson"
-                value={loginPenName}
-                onChange={(e) => setLoginPenName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
-                required
-              />
-            </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Pen Name (Pseudonym)</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Mark Twain"
+                  value={loginPenName}
+                  onChange={(e) => setLoginPenName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Email Address</label>
-              <input 
-                type="email" 
-                placeholder="e.g. alex@storyforge.com"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
-                required
-              />
-            </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Email Address</label>
+                <input 
+                  type="email" 
+                  placeholder="e.g. mark@twain.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
+                  required
+                />
+              </div>
 
-            {loginError && (
-              <p className="text-[10px] font-bold text-rose-500 mt-1 select-none">{loginError}</p>
-            )}
+              {loginError && (
+                <p className="text-[10px] text-rose-500 font-semibold">{loginError}</p>
+              )}
 
-            <button 
-              type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-600/20 cursor-pointer mt-2 flex items-center justify-center gap-1.5"
-            >
-              <Sparkles size={14} /> Enter Writer Studio
-            </button>
-          </form>
+              <button 
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/20 pt-3 cursor-pointer"
+              >
+                Create Writer Profile
+              </button>
+
+              {hasExistingProfile && (
+                <button
+                  type="button"
+                  onClick={() => setIsSwitchingProfile(false)}
+                  className="w-full text-center text-[10px] font-semibold text-slate-500 hover:text-slate-400 transition-colors cursor-pointer pt-2"
+                >
+                  Go Back
+                </button>
+              )}
+            </form>
+          )}
 
         </div>
       </div>

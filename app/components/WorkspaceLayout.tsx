@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
   Book, LayoutDashboard, Users, Map, Target, FlaskConical, Lightbulb, 
   ChevronRight, Home, Menu, ChevronLeft, Sparkles, 
-  Trash2, Plus, Calendar, Award, LogOut, Settings, User, X, Globe, Sun, Moon
+  Trash2, Plus, Calendar, Award, LogOut, Settings, User, X, Globe, Sun, Moon, PenTool
 } from 'lucide-react';
 import { DragDropOrganizer } from './DragDropOrganizer';
 import RichTextEditor from './RichTextEditor';
@@ -60,6 +60,9 @@ export default function WorkspaceLayout({
   const [profilePenName, setProfilePenName] = useState(userProfile.penName);
   const [profileEmail, setProfileEmail] = useState(userProfile.email);
   const [profileBio, setProfileBio] = useState(userProfile.bio || "");
+
+  // Mobile Options Drawer State
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Ideas Tab State
   const [ideas, setIdeas] = useState<Array<{ id: string; text: string; color: string }>>([
@@ -359,7 +362,7 @@ export default function WorkspaceLayout({
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-805 dark:text-slate-100 font-sans">
       
       {/* SIDEBAR NAVIGATION */}
-      <aside className={`border-r border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900/50 backdrop-blur-xl h-screen flex flex-col justify-between shrink-0 transition-all duration-300 relative z-20 ${
+      <aside className={`hidden md:flex border-r border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900/50 backdrop-blur-xl h-screen flex-col justify-between shrink-0 transition-all duration-300 relative z-20 ${
         isSidebarCollapsed ? 'w-20' : 'w-64'
       }`}>
         {/* Top brand & Main links */}
@@ -530,7 +533,7 @@ export default function WorkspaceLayout({
         </header>
 
         {/* Workspace Canvas */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/50 dark:bg-slate-950/40">
+        <div className="flex-1 overflow-y-auto p-3 md:p-8 bg-slate-50/50 dark:bg-slate-950/40">
           
           {currentView === 'write' && (
             <RichTextEditor 
@@ -924,6 +927,128 @@ export default function WorkspaceLayout({
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      <nav className="md:hidden shrink-0 h-16 border-t border-slate-200 dark:border-slate-850 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-around px-4 pb-safe z-30 select-none">
+        <button 
+          onClick={() => setCurrentView('write')}
+          className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all ${
+            currentView === 'write' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-400 dark:text-slate-500'
+          }`}
+        >
+          <PenTool size={16} />
+          <span className="text-[9px] font-bold">Write</span>
+        </button>
+        <button 
+          onClick={() => setCurrentView('organize')}
+          className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all ${
+            currentView === 'organize' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-400 dark:text-slate-500'
+          }`}
+        >
+          <Book size={16} />
+          <span className="text-[9px] font-bold">Chapters</span>
+        </button>
+        <button 
+          onClick={() => setCurrentView('outline')}
+          className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all ${
+            currentView === 'outline' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-400 dark:text-slate-500'
+          }`}
+        >
+          <Map size={16} />
+          <span className="text-[9px] font-bold">Outline</span>
+        </button>
+        <button 
+          onClick={() => setCurrentView('characters')}
+          className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all ${
+            currentView === 'characters' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-400 dark:text-slate-500'
+          }`}
+        >
+          <Users size={16} />
+          <span className="text-[9px] font-bold">Cast</span>
+        </button>
+        <button 
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all text-slate-450 dark:text-slate-500"
+        >
+          <Menu size={16} />
+          <span className="text-[9px] font-bold">More</span>
+        </button>
+      </nav>
+
+      {/* MOBILE MENU MODAL DRAWER */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 md:hidden flex items-end justify-center">
+          <div className="w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 rounded-t-3xl p-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800/80">
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">More Studio Options</span>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => { setCurrentView('brainstorm'); setIsMobileMenuOpen(false); }}
+                className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl border border-slate-200/60 dark:border-slate-800 transition-all text-left"
+              >
+                <Lightbulb size={16} className="text-indigo-500 shrink-0" />
+                <span>Brainstorm</span>
+              </button>
+              <button
+                onClick={() => { setCurrentView('research'); setIsMobileMenuOpen(false); }}
+                className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl border border-slate-200/60 dark:border-slate-800 transition-all text-left"
+              >
+                <FlaskConical size={16} className="text-indigo-500 shrink-0" />
+                <span>Research Notes</span>
+              </button>
+              <button
+                onClick={() => { setCurrentView('goals'); setIsMobileMenuOpen(false); }}
+                className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl border border-slate-200/60 dark:border-slate-800 transition-all text-left"
+              >
+                <Target size={16} className="text-indigo-500 shrink-0" />
+                <span>Goals & Target</span>
+              </button>
+              <button
+                onClick={() => { setIsProfileModalOpen(true); setIsMobileMenuOpen(false); }}
+                className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl border border-slate-200/60 dark:border-slate-800 transition-all text-left"
+              >
+                <User size={16} className="text-indigo-500 shrink-0" />
+                <span>Edit Profile</span>
+              </button>
+            </div>
+
+            <div className="h-px bg-slate-100 dark:bg-slate-800/80 my-2" />
+
+            <div className="flex gap-2.5">
+              <button
+                onClick={onToggleTheme}
+                className="flex-1 flex items-center justify-center gap-2 p-3 bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl border border-transparent transition-all"
+              >
+                {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+                <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+              </button>
+              <button
+                onClick={() => { onBackToDashboard(); setIsMobileMenuOpen(false); }}
+                className="flex-1 flex items-center justify-center gap-2 p-3 bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl border border-transparent transition-all"
+              >
+                <Home size={15} />
+                <span>Dashboard</span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => { onLogout(); setIsMobileMenuOpen(false); }}
+              className="w-full flex items-center justify-center gap-2 p-3 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100/65 dark:hover:bg-rose-900/30 text-rose-600 dark:text-rose-450 text-xs font-bold rounded-xl border border-rose-100/30 dark:border-rose-900/10 transition-all mt-1"
+            >
+              <LogOut size={15} />
+              <span>Logout Writer Session</span>
+            </button>
           </div>
         </div>
       )}
