@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
+    "@supabase/supabase-js": "^2.110.0",
     "@tailwindcss/typography": "^0.5.20",
     "@tiptap/extension-character-count": "^3.27.1",
     "@tiptap/extension-mention": "^3.27.1",

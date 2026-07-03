@@ -3,11 +3,9 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import WorkspaceLayout from './components/WorkspaceLayout';
 import { Project, UserProfile } from './types';
-import { PenTool } from 'lucide-react';
-
-const STORAGE_KEY = 'storyforge_projects_v2';
-const AUTH_KEY = 'storyforge_auth_v2';
-const PROFILE_KEY = 'storyforge_profile_v2';
+import { PenTool, Sparkles } from 'lucide-react';
+import { supabase } from './lib/supabase';
+import { User } from '@supabase/supabase-js';
 
 const DEFAULT_PROFILE: UserProfile = {
   name: "",
@@ -16,32 +14,29 @@ const DEFAULT_PROFILE: UserProfile = {
   bio: ""
 };
 
-const DEFAULT_PROJECTS: Project[] = [];
-
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Authentication State
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-  const [isSwitchingProfile, setIsSwitchingProfile] = useState(false);
 
   // Login Form input states
   const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [loginName, setLoginName] = useState("");
   const [loginPenName, setLoginPenName] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
 
-  // Load from local storage on mount
+  // Load theme and session on mount
   useEffect(() => {
-    const savedProjects = localStorage.getItem(STORAGE_KEY);
-    const savedAuth = localStorage.getItem(AUTH_KEY);
-    const savedProfile = localStorage.getItem(PROFILE_KEY);
+    // 1. Sync Theme from Local Storage
     const savedTheme = localStorage.getItem('storyforge_theme_v2');
-
     const activeTheme = (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'dark';
     if (activeTheme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -49,44 +44,162 @@ export default function Home() {
       document.documentElement.classList.remove('dark');
     }
 
-    let initialProjects = DEFAULT_PROJECTS;
-    if (savedProjects) {
-      try {
-        initialProjects = JSON.parse(savedProjects);
-      } catch {
-        // ignore
-      }
-    }
-
-    let initialProfile = DEFAULT_PROFILE;
-    if (savedProfile) {
-      try {
-        initialProfile = JSON.parse(savedProfile);
-      } catch {
-        // ignore
-      }
-    }
-
-    let loggedInStatus = false;
-    if (savedAuth) {
-      loggedInStatus = savedAuth === 'true';
-    }
-
-    const timer = setTimeout(() => {
-      setProjects(initialProjects);
-      setProfile(initialProfile);
-      setIsLoggedIn(loggedInStatus);
+    const themeTimer = setTimeout(() => {
       setTheme(activeTheme);
-      
-      // Pre-populate login form with profile values
-      setLoginName(initialProfile.name);
-      setLoginPenName(initialProfile.penName);
-      setLoginEmail(initialProfile.email);
-      
-      setIsLoaded(true);
     }, 0);
 
-    return () => clearTimeout(timer);
+    const migrateLegacyProjects = async (userId: string) => {
+      const savedProjects = localStorage.getItem('storyforge_projects_v2');
+      if (!savedProjects) return;
+
+      try {
+        const legacyProjects: Project[] = JSON.parse(savedProjects);
+        if (legacyProjects.length === 0) return;
+
+        const confirmMigration = confirm(
+          `Welcome to StoryForge Cloud!\n\n` +
+          `We detected ${legacyProjects.length} legacy project(s) saved in this browser's local storage.\n\n` +
+          `Would you like to import them to your new Supabase database account?`
+        );
+
+        if (!confirmMigration) return;
+
+        for (const proj of legacyProjects) {
+          await supabase.from('projects').insert({
+            user_id: userId,
+            title: proj.title,
+            type: proj.type,
+            word_goal: proj.wordGoal,
+            daily_goal: proj.dailyGoal,
+            chapters: proj.chapters,
+            characters: proj.characters,
+            plot_beats: proj.plotBeats,
+            research_notes: proj.researchNotes
+          });
+        }
+
+        // Clean up legacy key
+        localStorage.removeItem('storyforge_projects_v2');
+        
+        // Reload project list
+        const { data: refreshed } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false });
+
+        if (refreshed) {
+          const mappedProjects: Project[] = refreshed.map(p => ({
+            id: p.id,
+            title: p.title,
+            type: p.type as 'Book' | 'Article',
+            updatedAt: new Date(p.updated_at).toLocaleDateString(),
+            wordGoal: p.word_goal,
+            dailyGoal: p.daily_goal,
+            chapters: p.chapters || [],
+            characters: p.characters || [],
+            plotBeats: p.plot_beats || [],
+            researchNotes: p.research_notes || []
+          }));
+          setProjects(mappedProjects);
+        }
+
+        alert("Local projects migrated successfully to Supabase!");
+      } catch (err) {
+        console.error("Migration error", err);
+      }
+    };
+
+    const loadProfileAndProjects = async (userObj: User) => {
+      try {
+        // 1. Fetch Profile
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userObj.id)
+          .single();
+
+        if (profileData) {
+          setProfile({
+            name: profileData.name,
+            penName: profileData.pen_name,
+            email: profileData.email,
+            bio: profileData.bio || ""
+          });
+        } else {
+          setProfile({
+            name: userObj.email?.split('@')[0] || "Author",
+            penName: userObj.email?.split('@')[0] || "Author",
+            email: userObj.email || "",
+            bio: "Speculative fiction writer."
+          });
+        }
+
+        // 2. Fetch Projects
+        const { data: projectsData } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('user_id', userObj.id)
+          .order('updated_at', { ascending: false });
+
+        if (projectsData) {
+          const mappedProjects: Project[] = projectsData.map(p => ({
+            id: p.id,
+            title: p.title,
+            type: p.type as 'Book' | 'Article',
+            updatedAt: new Date(p.updated_at).toLocaleDateString(),
+            wordGoal: p.word_goal,
+            dailyGoal: p.daily_goal,
+            chapters: p.chapters || [],
+            characters: p.characters || [],
+            plotBeats: p.plot_beats || [],
+            researchNotes: p.research_notes || []
+          }));
+          setProjects(mappedProjects);
+        }
+
+        setIsLoggedIn(true);
+        
+        // 3. Check for legacy Local Storage migrations
+        setTimeout(() => {
+          migrateLegacyProjects(userObj.id);
+        }, 500);
+
+      } catch (err) {
+        console.error("Error loading account details", err);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    // 2. Fetch session from Supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setCurrentUser(session.user);
+        loadProfileAndProjects(session.user);
+      } else {
+        setIsLoaded(true);
+      }
+    });
+
+    // 3. Listen to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setCurrentUser(session.user);
+        loadProfileAndProjects(session.user);
+      } else {
+        setCurrentUser(null);
+        setProfile(DEFAULT_PROFILE);
+        setProjects([]);
+        setIsLoggedIn(false);
+        setIsLoaded(true);
+      }
+    });
+
+    return () => {
+      clearTimeout(themeTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleToggleTheme = () => {
@@ -100,69 +213,179 @@ export default function Home() {
     }
   };
 
-  // Save projects to local storage
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-    }
-  }, [projects, isLoaded]);
-
-  // Save profile and auth to local storage
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(AUTH_KEY, isLoggedIn ? 'true' : 'false');
-      localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-    }
-  }, [isLoggedIn, profile, isLoaded]);
-
-  const handleUpdateProject = (updatedProj: Project) => {
+  const handleUpdateProject = async (updatedProj: Project) => {
+    if (!currentUser) return;
+    
+    // Optimistic UI updates
     setProjects(projects.map(p => p.id === updatedProj.id ? updatedProj : p));
+
+    const { error } = await supabase
+      .from('projects')
+      .update({
+        title: updatedProj.title,
+        word_goal: updatedProj.wordGoal,
+        daily_goal: updatedProj.dailyGoal,
+        chapters: updatedProj.chapters,
+        characters: updatedProj.characters,
+        plot_beats: updatedProj.plotBeats,
+        research_notes: updatedProj.researchNotes,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', updatedProj.id);
+
+    if (error) {
+      console.error("Error updating project in Supabase", error);
+    }
   };
 
-  const handleAddProject = (newProj: Project) => {
-    setProjects([newProj, ...projects]);
+  const handleAddProject = async (newProj: Project) => {
+    if (!currentUser) return;
+
+    const { data, error } = await supabase
+      .from('projects')
+      .insert({
+        user_id: currentUser.id,
+        title: newProj.title,
+        type: newProj.type,
+        word_goal: newProj.wordGoal,
+        daily_goal: newProj.dailyGoal,
+        chapters: newProj.chapters,
+        characters: newProj.characters,
+        plot_beats: newProj.plotBeats,
+        research_notes: newProj.researchNotes
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating project in Supabase", error);
+      alert("Failed to save project. Ensure your database connection settings are correct.");
+      return;
+    }
+
+    if (data) {
+      const mappedProj: Project = {
+        id: data.id,
+        title: data.title,
+        type: data.type as 'Book' | 'Article',
+        updatedAt: 'Just now',
+        wordGoal: data.word_goal,
+        dailyGoal: data.daily_goal,
+        chapters: data.chapters || [],
+        characters: data.characters || [],
+        plotBeats: data.plot_beats || [],
+        researchNotes: data.research_notes || []
+      };
+      setProjects([mappedProj, ...projects]);
+      setActiveProjectId(mappedProj.id);
+    }
   };
 
-  const handleDeleteProject = (id: string) => {
+  const handleDeleteProject = async (id: string) => {
+    if (!currentUser) return;
     const proj = projects.find(p => p.id === id);
     const title = proj ? proj.title : "this project";
     if (!confirm(`Are you sure you want to delete the project "${title}"?`)) return;
-    if (!confirm(`WARNING: All writing in "${title}" will be permanently erased. Are you 100% sure?`)) return;
+    if (!confirm(`WARNING: All writing in "${title}" will be permanently erased from the cloud. Are you 100% sure?`)) return;
+
     setProjects(projects.filter(p => p.id !== id));
     if (activeProjectId === id) {
       setActiveProjectId(null);
     }
+
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error("Error deleting project in Supabase", error);
+      alert("Failed to delete project from database.");
+    }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleUpdateUserProfile = async (updatedProfile: UserProfile) => {
+    if (!currentUser) return;
+    setProfile(updatedProfile);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        name: updatedProfile.name,
+        pen_name: updatedProfile.penName,
+        bio: updatedProfile.bio || ""
+      })
+      .eq('id', currentUser.id);
+
+    if (error) {
+      console.error("Error updating profile in Supabase", error);
+    }
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginName.trim() || !loginPenName.trim() || !loginEmail.trim()) {
-      setLoginError("Please fill out all profile fields to register/login.");
+    setLoginError("");
+
+    if (!loginEmail.trim() || !loginPassword) {
+      setLoginError("Please enter your email and password.");
       return;
     }
-    setLoginError("");
-    setProfile({
-      name: loginName.trim(),
-      penName: loginPenName.trim(),
+
+    const { error } = await supabase.auth.signInWithPassword({
       email: loginEmail.trim(),
-      bio: profile.bio || "Speculative fiction writer."
+      password: loginPassword
     });
-    setIsSwitchingProfile(false);
-    setIsLoggedIn(true);
+
+    if (error) {
+      setLoginError(error.message);
+    }
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+
+    if (!loginEmail.trim() || !loginPassword || !loginName.trim() || !loginPenName.trim()) {
+      setLoginError("Please fill out all registration parameters.");
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email: loginEmail.trim(),
+      password: loginPassword
+    });
+
+    if (error) {
+      setLoginError(error.message);
+      return;
+    }
+
+    if (data.user) {
+      // Create user profile row
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          name: loginName.trim(),
+          pen_name: loginPenName.trim(),
+          email: loginEmail.trim(),
+          bio: "Speculative fiction writer."
+        });
+
+      if (profileErr) {
+        setLoginError("Account created, but profile failed: " + profileErr.message);
+      } else {
+        alert("Writer account successfully registered!");
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Error signing out", error);
+    }
     setActiveProjectId(null);
-  };
-
-  const handleSwitchProfile = () => {
-    localStorage.removeItem(PROFILE_KEY);
-    setProfile(DEFAULT_PROFILE);
-    setLoginName("");
-    setLoginPenName("");
-    setLoginEmail("");
-    setIsSwitchingProfile(true);
   };
 
   const activeProject = projects.find(p => p.id === activeProjectId) || null;
@@ -172,18 +395,16 @@ export default function Home() {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-medium tracking-wide">Initializing StoryForge...</span>
+          <span className="text-sm font-medium tracking-wide">Connecting to StoryForge Cloud...</span>
         </div>
       </div>
     );
   }
 
-  // SIMULATED LOGIN PAGE
+  // SUPABASE LOGIN PAGE
   if (!isLoggedIn) {
-    const hasExistingProfile = profile.name && profile.name.trim().length > 0;
-    
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 relative overflow-hidden font-sans select-none transition-colors duration-200">
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 relative overflow-hidden font-sans select-none">
         {/* Neon Background mesh */}
         <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-violet-600/10 rounded-full blur-[100px] pointer-events-none" />
@@ -195,99 +416,82 @@ export default function Home() {
               <PenTool className="text-white" size={24} />
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-200 to-violet-400 bg-clip-text text-transparent">StoryForge</h1>
-            <p className="text-slate-400 text-xs mt-1.5 font-medium uppercase tracking-widest">Where masterpieces are forged</p>
+            <p className="text-slate-400 text-xs mt-1.5 font-medium uppercase tracking-widest">Cloud manuscript studio</p>
           </div>
 
-          {hasExistingProfile && !isSwitchingProfile ? (
-            /* Welcome Back Card */
-            <div className="text-center space-y-6">
-              <div className="flex flex-col items-center gap-3">
-                <div className="h-16 w-16 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xl font-bold uppercase shadow-md shadow-indigo-550/20">
-                  {profile.penName.substring(0, 2) || "W"}
-                </div>
+          <form onSubmit={isSignUpMode ? handleSignUpSubmit : handleLoginSubmit} className="space-y-4">
+            {isSignUpMode && (
+              <>
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-400">Welcome Back</h2>
-                  <p className="text-lg font-bold text-slate-100 mt-0.5">{profile.penName}</p>
-                  <span className="text-[10px] text-slate-500 font-medium">{profile.email}</span>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Real Name</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Samuel Clemens"
+                    value={loginName}
+                    onChange={(e) => setLoginName(e.target.value)}
+                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
+                    required
+                  />
                 </div>
-              </div>
 
-              <div className="space-y-3 pt-2">
-                <button
-                  onClick={() => setIsLoggedIn(true)}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-md shadow-indigo-550/10 cursor-pointer block text-center"
-                >
-                  Enter Writing Studio
-                </button>
-                <button
-                  onClick={handleSwitchProfile}
-                  className="w-full bg-slate-800 hover:bg-slate-700/80 text-slate-300 font-semibold text-xs py-3 rounded-xl transition-all cursor-pointer block text-center"
-                >
-                  Sign in as another writer
-                </button>
-              </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Pen Name</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Mark Twain"
+                    value={loginPenName}
+                    onChange={(e) => setLoginPenName(e.target.value)}
+                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Email Address</label>
+              <input 
+                type="email" 
+                placeholder="writer@storyforge.com"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
+                required
+              />
             </div>
-          ) : (
-            /* Sign Up Registration Form */
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Your Real Name</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Samuel Clemens"
-                  value={loginName}
-                  onChange={(e) => setLoginName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
-                  required
-                />
-              </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Pen Name (Pseudonym)</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Mark Twain"
-                  value={loginPenName}
-                  onChange={(e) => setLoginPenName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
-                  required
-                />
-              </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Password</label>
+              <input 
+                type="password" 
+                placeholder="••••••••"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
+                required
+              />
+            </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Email Address</label>
-                <input 
-                  type="email" 
-                  placeholder="e.g. mark@twain.com"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200"
-                  required
-                />
-              </div>
+            {loginError && (
+              <p className="text-[10px] text-rose-500 font-semibold leading-normal">{loginError}</p>
+            )}
 
-              {loginError && (
-                <p className="text-[10px] text-rose-500 font-semibold">{loginError}</p>
-              )}
+            <button 
+              type="submit"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/20 pt-3 cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <Sparkles size={14} />
+              <span>{isSignUpMode ? "Register Account" : "Sign In to Studio"}</span>
+            </button>
 
-              <button 
-                type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/20 pt-3 cursor-pointer"
-              >
-                Create Writer Profile
-              </button>
-
-              {hasExistingProfile && (
-                <button
-                  type="button"
-                  onClick={() => setIsSwitchingProfile(false)}
-                  className="w-full text-center text-[10px] font-semibold text-slate-500 hover:text-slate-400 transition-colors cursor-pointer pt-2"
-                >
-                  Go Back
-                </button>
-              )}
-            </form>
-          )}
+            <button
+              type="button"
+              onClick={() => { setIsSignUpMode(!isSignUpMode); setLoginError(""); }}
+              className="w-full text-center text-[10px] font-semibold text-slate-500 hover:text-slate-400 transition-colors cursor-pointer pt-2"
+            >
+              {isSignUpMode ? "Already have an account? Log In" : "New to StoryForge? Create a Writer Account"}
+            </button>
+          </form>
 
         </div>
       </div>
@@ -313,7 +517,7 @@ export default function Home() {
       onUpdateProject={handleUpdateProject}
       onBackToDashboard={() => setActiveProjectId(null)}
       userProfile={profile}
-      onUpdateUserProfile={setProfile}
+      onUpdateUserProfile={handleUpdateUserProfile}
       onLogout={handleLogout}
       theme={theme}
       onToggleTheme={handleToggleTheme}
