@@ -127,12 +127,34 @@ export default function Home() {
             bio: profileData.bio || ""
           });
         } else {
-          setProfile({
-            name: userObj.email?.split('@')[0] || "Author",
-            penName: userObj.email?.split('@')[0] || "Author",
-            email: userObj.email || "",
-            bio: "Speculative fiction writer."
-          });
+          // Create user profile row automatically for Google signups
+          const tempName = userObj.user_metadata?.full_name || userObj.email?.split('@')[0] || "Author";
+          const { error: profileErr } = await supabase
+            .from('profiles')
+            .insert({
+              id: userObj.id,
+              name: tempName,
+              pen_name: tempName,
+              email: userObj.email || "",
+              bio: "Speculative fiction writer."
+            });
+
+          if (!profileErr) {
+            setProfile({
+              name: tempName,
+              penName: tempName,
+              email: userObj.email || "",
+              bio: "Speculative fiction writer."
+            });
+          } else {
+            console.error("Failed to automatically create OAuth profile", profileErr);
+            setProfile({
+              name: tempName,
+              penName: tempName,
+              email: userObj.email || "",
+              bio: "Speculative fiction writer."
+            });
+          }
         }
 
         // 2. Fetch Projects
@@ -322,6 +344,20 @@ export default function Home() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setLoginError("");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+
+    if (error) {
+      setLoginError(error.message);
+    }
+  };
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
@@ -420,6 +456,39 @@ export default function Home() {
           </div>
 
           <form onSubmit={isSignUpMode ? handleSignUpSubmit : handleLoginSubmit} className="space-y-4">
+            
+            {/* Google OAuth button */}
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs py-3 rounded-xl border border-slate-200 transition-all cursor-pointer shadow-sm"
+            >
+              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                <path
+                  fill="#EA4335"
+                  d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.47 15.02 1 12 1 7.37 1 3.4 3.75 1.58 7.74l3.87 3C6.38 7.76 9 5.04 12 5.04z"
+                />
+                <path
+                  fill="#4285F4"
+                  d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.73-2.42 3.57l3.77 2.92c2.2-2.03 3.68-5.02 3.68-8.64z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.45 14.76c-.25-.74-.39-1.53-.39-2.36s.14-1.62.39-2.36l-3.87-3C.83 8.52 0 10.18 0 12s.83 3.48 2.58 4.96l2.87-2.2z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c3.24 0 5.97-1.07 7.96-2.92l-3.77-2.92c-1.1.74-2.52 1.18-4.19 1.18-3 0-5.62-2.72-6.55-5.7l-3.87 3C3.4 20.25 7.37 23 12 23z"
+                />
+              </svg>
+              <span>Continue with Google</span>
+            </button>
+
+            <div className="flex items-center my-4">
+              <div className="flex-1 h-px bg-slate-800" />
+              <span className="px-3 text-[10px] text-slate-500 font-bold uppercase tracking-wider">Or</span>
+              <div className="flex-1 h-px bg-slate-800" />
+            </div>
             {isSignUpMode && (
               <>
                 <div>
