@@ -9,6 +9,12 @@ export interface Chapter {
   title: string;
   words: number;
   content: string; // HTML format for TipTap
+  comments?: {
+    id: string;
+    text: string;
+    date: string;
+    quote?: string;
+  }[];
 }
 
 export interface Character {

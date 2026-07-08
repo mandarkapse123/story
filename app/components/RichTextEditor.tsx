@@ -11,25 +11,125 @@ import { Project } from '../types';
 // CRITICAL: This CSS is required for the @ mention dropdown to become visible!
 import 'tippy.js/dist/tippy.css'; 
 
-import { Maximize2, Minimize2, Target, Info, ChevronDown, Download, Sparkles, BookOpen, PenTool, Type } from 'lucide-react';
+import { 
+  Maximize2, Minimize2, Target, Info, ChevronDown, Download, Sparkles, BookOpen, PenTool, Type,
+  Bold, Italic, List, ListOrdered, Quote, Undo, Redo, Plus, X, Clipboard
+} from 'lucide-react';
 
 interface RichTextEditorProps {
   project: Project;
   activeChapterId: string;
   onSelectChapter: (id: string) => void;
   onUpdateChapterContent: (chapterId: string, content: string, wordCount: number) => void;
+  onUpdateProject?: (project: Project) => void;
+}
+
+function generateUniqueId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
 
 export default function RichTextEditor({ 
   project, 
   activeChapterId, 
   onSelectChapter, 
-  onUpdateChapterContent 
+  onUpdateChapterContent,
+  onUpdateProject
 }: RichTextEditorProps) {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [sessionStartWordCount, setSessionStartWordCount] = useState<number | null>(null);
   const [fontFamily, setFontFamily] = useState<string>('serif');
+  const [fontSize, setFontSize] = useState<'xs' | 'sm' | 'base' | 'lg' | 'xl'>('base');
+
+  // Chapter creation state
+  const [isCreatingChapterDirectly, setIsCreatingChapterDirectly] = useState(false);
+  const [newChapterTitle, setNewChapterTitle] = useState("");
+
+  // Comments state
+  const [isAddingComment, setIsAddingComment] = useState(false);
+  const [newCommentText, setNewCommentText] = useState("");
+  const [newCommentQuote, setNewCommentQuote] = useState("");
+
+  const handleCreateChapter = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChapterTitle.trim() || !onUpdateProject) return;
+
+    const newChapterId = generateUniqueId('chap');
+    const newChapterObj = {
+      id: newChapterId,
+      title: newChapterTitle.trim(),
+      words: 0,
+      content: `<h1>${newChapterTitle.trim()}</h1>\n<p>Start writing your new chapter...</p>`,
+      comments: []
+    };
+
+    onUpdateProject({
+      ...project,
+      chapters: [...project.chapters, newChapterObj]
+    });
+
+    onSelectChapter(newChapterId);
+    setNewChapterTitle("");
+    setIsCreatingChapterDirectly(false);
+  };
+
+  const getSelectedText = () => {
+    if (!editor) return "";
+    const { from, to } = editor.state.selection;
+    try {
+      return editor.state.doc.textBetween(from, to, " ");
+    } catch {
+      return "";
+    }
+  };
+
+  const handleAddComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommentText.trim() || !onUpdateProject) return;
+
+    const newComment = {
+      id: generateUniqueId('comment'),
+      text: newCommentText.trim(),
+      quote: newCommentQuote.trim() || undefined,
+      date: new Date().toLocaleDateString()
+    };
+
+    const updatedChapters = project.chapters.map(chap => 
+      chap.id === activeChapterId 
+        ? {
+            ...chap,
+            comments: [...(chap.comments || []), newComment]
+          }
+        : chap
+    );
+
+    onUpdateProject({
+      ...project,
+      chapters: updatedChapters
+    });
+
+    setNewCommentText("");
+    setNewCommentQuote("");
+    setIsAddingComment(false);
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    if (!confirm("Are you sure you want to delete this comment?") || !onUpdateProject) return;
+
+    const updatedChapters = project.chapters.map(chap => 
+      chap.id === activeChapterId 
+        ? {
+            ...chap,
+            comments: (chap.comments || []).filter(c => c.id !== commentId)
+          }
+        : chap
+    );
+
+    onUpdateProject({
+      ...project,
+      chapters: updatedChapters
+    });
+  };
 
   const activeChapter = project.chapters.find(c => c.id === activeChapterId) || project.chapters[0];
 
@@ -152,17 +252,26 @@ export default function RichTextEditor({
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 bg-white dark:bg-slate-900/60 backdrop-blur-md p-4 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm w-full">
           <div className="flex items-center gap-3 w-full sm:w-auto">
             {/* Chapter Selector */}
-            <div className="relative flex-1 sm:flex-none">
-              <select 
-                value={activeChapterId}
-                onChange={(e) => onSelectChapter(e.target.value)}
-                className="appearance-none bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl pl-3 pr-9 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer transition-all"
+            <div className="flex items-center gap-1.5 flex-1 sm:flex-none">
+              <div className="relative flex-1 sm:flex-none">
+                <select 
+                  value={activeChapterId}
+                  onChange={(e) => onSelectChapter(e.target.value)}
+                  className="appearance-none bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl pl-3 pr-9 py-2 w-44 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer transition-all"
+                >
+                  {project.chapters.map(chap => (
+                    <option key={chap.id} value={chap.id}>{chap.title}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-550 pointer-events-none" />
+              </div>
+              <button
+                onClick={() => setIsCreatingChapterDirectly(true)}
+                className="p-2 bg-slate-50 dark:bg-slate-800/40 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-slate-500 dark:text-slate-350 rounded-xl border border-slate-200 dark:border-slate-700/60 hover:text-indigo-600 transition-all cursor-pointer shrink-0"
+                title="Add New Chapter Directly"
               >
-                {project.chapters.map(chap => (
-                  <option key={chap.id} value={chap.id}>{chap.title}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <Plus size={14} />
+              </button>
             </div>
             
             <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 px-2.5 py-2 rounded-xl">
@@ -211,6 +320,56 @@ export default function RichTextEditor({
           </div>
         </div>
 
+        {/* DIRECT ADD NEW CHAPTER MODAL */}
+        {isCreatingChapterDirectly && (
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <form onSubmit={handleCreateChapter} className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800/80 mb-4">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <Plus size={16} className="text-indigo-500" />
+                  <span>Add New Chapter</span>
+                </h3>
+                <button 
+                  type="button"
+                  onClick={() => setIsCreatingChapterDirectly(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              
+              <div className="space-y-1 mb-5">
+                <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase block mb-1">Chapter Title</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Chapter 4: The Journey Begins"
+                  value={newChapterTitle}
+                  onChange={(e) => setNewChapterTitle(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-850 dark:text-slate-100 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setIsCreatingChapterDirectly(false)}
+                  className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 cursor-pointer rounded-xl font-bold text-xs py-2"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2 rounded-xl transition-all shadow-sm cursor-pointer"
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
         {/* The Writing Paper Canvas */}
         <div className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl transition-all duration-300 ${
           isFocusMode 
@@ -228,7 +387,168 @@ export default function RichTextEditor({
             : fontFamily === 'garamond'
             ? '[&_.ProseMirror]:font-[Garamond,\'EB_Garamond\',Georgia,serif] [&_.ProseMirror_p]:font-[Garamond,\'EB_Garamond\',Georgia,serif] [&_.ProseMirror_h1]:font-[Garamond,\'EB_Garamond\',Georgia,serif] [&_.ProseMirror_h2]:font-[Garamond,\'EB_Garamond\',Georgia,serif] [&_.ProseMirror_h3]:font-[Garamond,\'EB_Garamond\',Georgia,serif] font-[Garamond,\'EB_Garamond\',Georgia,serif]'
             : '[&_.ProseMirror]:font-serif [&_.ProseMirror_p]:font-serif [&_.ProseMirror_h1]:font-serif [&_.ProseMirror_h2]:font-serif [&_.ProseMirror_h3]:font-serif font-serif'
+        } ${
+          fontSize === 'xs'
+            ? '[&_.ProseMirror]:text-xs [&_.ProseMirror]:leading-normal'
+            : fontSize === 'sm'
+            ? '[&_.ProseMirror]:text-sm [&_.ProseMirror]:leading-relaxed'
+            : fontSize === 'base'
+            ? '[&_.ProseMirror]:text-base [&_.ProseMirror]:leading-relaxed'
+            : fontSize === 'lg'
+            ? '[&_.ProseMirror]:text-lg [&_.ProseMirror]:leading-relaxed'
+            : '[&_.ProseMirror]:text-xl [&_.ProseMirror]:leading-relaxed'
         }`}>
+          {editor && (
+            <div className="flex flex-wrap items-center gap-1.5 pb-3 mb-5 border-b border-slate-100 dark:border-slate-800/80 shrink-0 sticky top-0 bg-white dark:bg-slate-900 z-10 select-none">
+              {/* Bold */}
+              <button
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  editor.isActive('bold')
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35 font-bold'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent'
+                }`}
+                title="Bold"
+              >
+                <Bold size={14} />
+              </button>
+
+              {/* Italic */}
+              <button
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  editor.isActive('italic')
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-805 border border-transparent'
+                }`}
+                title="Italic"
+              >
+                <Italic size={14} />
+              </button>
+
+              <span className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-1" />
+
+              {/* Headings */}
+              <button
+                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                className={`p-1 text-center w-7 rounded-lg transition-colors cursor-pointer text-xs font-bold ${
+                  editor.isActive('heading', { level: 1 })
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent'
+                }`}
+                title="Heading 1"
+              >
+                H1
+              </button>
+
+              <button
+                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                className={`p-1 text-center w-7 rounded-lg transition-colors cursor-pointer text-xs font-bold ${
+                  editor.isActive('heading', { level: 2 })
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent'
+                }`}
+                title="Heading 2"
+              >
+                H2
+              </button>
+
+              <button
+                onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+                className={`p-1 text-center w-7 rounded-lg transition-colors cursor-pointer text-xs font-bold ${
+                  editor.isActive('heading', { level: 3 })
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent'
+                }`}
+                title="Heading 3"
+              >
+                H3
+              </button>
+
+              <span className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-1" />
+
+              {/* Bullet List */}
+              <button
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  editor.isActive('bulletList')
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent'
+                }`}
+                title="Bullet List"
+              >
+                <List size={14} />
+              </button>
+
+              {/* Number List */}
+              <button
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  editor.isActive('orderedList')
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent'
+                }`}
+                title="Numbered List"
+              >
+                <ListOrdered size={14} />
+              </button>
+
+              {/* Blockquote */}
+              <button
+                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  editor.isActive('blockquote')
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent'
+                }`}
+                title="Blockquote"
+              >
+                <Quote size={14} />
+              </button>
+
+              <span className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-1" />
+
+              {/* Undo/Redo */}
+              <button
+                onClick={() => editor.chain().focus().undo().run()}
+                disabled={!editor.can().undo()}
+                className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                title="Undo"
+              >
+                <Undo size={14} />
+              </button>
+
+              <button
+                onClick={() => editor.chain().focus().redo().run()}
+                disabled={!editor.can().redo()}
+                className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-805 rounded-lg disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                title="Redo"
+              >
+                <Redo size={14} />
+              </button>
+
+              <span className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-1" />
+
+              {/* Font Size Dropdown */}
+              <div className="relative">
+                <select
+                  value={fontSize}
+                  onChange={(e) => setFontSize(e.target.value as 'xs' | 'sm' | 'base' | 'lg' | 'xl')}
+                  className="appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-650 dark:text-slate-300 text-[10px] font-bold rounded-lg pl-2 pr-6 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer transition-all"
+                  title="Font Size"
+                >
+                  <option value="xs">12px (Small)</option>
+                  <option value="sm">14px (Normal)</option>
+                  <option value="base">16px (Large)</option>
+                  <option value="lg">18px (XL)</option>
+                  <option value="xl">20px (Huge)</option>
+                </select>
+                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-450 pointer-events-none" />
+              </div>
+
+            </div>
+          )}
+
           <div className="max-w-none">
             <EditorContent editor={editor} />
           </div>
@@ -322,6 +642,91 @@ export default function RichTextEditor({
                   </div>
                 </div>
               )}
+
+              {/* Comments Section */}
+              <div className="bg-white dark:bg-slate-900 p-3.5 border border-slate-250/50 dark:border-slate-800 rounded-xl shadow-xs">
+                <div className="flex justify-between items-center mb-2.5 pb-1.5 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <Clipboard size={11} /> Comments ({activeChapter.comments?.length || 0})
+                  </span>
+                  <button
+                    onClick={() => {
+                      const quoteText = getSelectedText();
+                      setNewCommentQuote(quoteText);
+                      setIsAddingComment(true);
+                    }}
+                    className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                  >
+                    + Add
+                  </button>
+                </div>
+
+                {isAddingComment && (
+                  <form onSubmit={handleAddComment} className="space-y-2 mb-3 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-850 animate-in fade-in duration-200">
+                    {newCommentQuote && (
+                      <div className="text-[9px] text-slate-450 dark:text-slate-500 italic border-l-2 border-slate-300 dark:border-slate-700 pl-1.5 truncate max-w-full">
+                        Quoting: &ldquo;{newCommentQuote}&rdquo;
+                      </div>
+                    )}
+                    <textarea
+                      placeholder={newCommentQuote ? "Add comment on selected text..." : "Add a general chapter note..."}
+                      value={newCommentText}
+                      onChange={(e) => setNewCommentText(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1.5 text-xs text-slate-850 dark:text-slate-255 focus:outline-none focus:ring-1 focus:ring-indigo-500 h-16 resize-none"
+                      required
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingComment(false);
+                          setNewCommentText("");
+                          setNewCommentQuote("");
+                        }}
+                        className="px-2 py-1 text-[10px] font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-2 py-1 text-[10px] font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer"
+                      >
+                        Comment
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                  {(!activeChapter.comments || activeChapter.comments.length === 0) ? (
+                    <div className="text-[10px] text-slate-450 dark:text-slate-500 text-center py-4 select-none">
+                      No comments yet. Highlight text or click + Add to write a comment.
+                    </div>
+                  ) : (
+                    activeChapter.comments.map((comment) => (
+                      <div key={comment.id} className="bg-slate-50/50 dark:bg-slate-950/60 p-2.5 rounded-lg border border-slate-150/40 dark:border-slate-850 flex flex-col group transition-all">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[8px] text-slate-400 dark:text-slate-500 font-semibold">{comment.date}</span>
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-rose-500 cursor-pointer"
+                            title="Delete comment"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                        {comment.quote && (
+                          <div className="text-[9px] text-slate-400 dark:text-slate-500 italic bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800 mb-1.5 border-l-2 border-l-indigo-450 dark:border-l-indigo-700 truncate max-w-full">
+                            &ldquo;{comment.quote}&rdquo;
+                          </div>
+                        )}
+                        <p className="text-[10px] text-slate-700 dark:text-slate-300 leading-normal break-words whitespace-pre-wrap">{comment.text}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

@@ -157,7 +157,7 @@ export default function Dashboard({
             {/* Theme Toggle Button */}
             <button 
               onClick={onToggleTheme}
-              className="p-2.5 text-slate-500 dark:text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl transition-all cursor-pointer bg-white dark:bg-slate-900"
+              className="p-2.5 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl transition-all cursor-pointer bg-white dark:bg-slate-900"
               title="Toggle Theme"
             >
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
@@ -218,7 +218,7 @@ export default function Dashboard({
                     </div>
                   </div>
 
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-650 dark:group-hover:text-indigo-400 transition-colors line-clamp-2 leading-snug">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2 leading-snug">
                     {project.title}
                   </h3>
                 </div>
@@ -329,7 +329,7 @@ export default function Dashboard({
               </button>
               <button 
                 type="submit"
-                className="flex-1 bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
               >
                 Create Project
               </button>

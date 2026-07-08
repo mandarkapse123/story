@@ -121,7 +121,7 @@ export default function OutlineView({ project, onUpdateProject }: OutlineViewPro
         </div>
         <button 
           onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-1.5 bg-indigo-650 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer border border-transparent"
+          className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer border border-transparent"
         >
           <Plus size={14} /> Add Plot Beat
         </button>
@@ -195,7 +195,7 @@ export default function OutlineView({ project, onUpdateProject }: OutlineViewPro
                       </button>
                       <button
                         onClick={() => saveEdit(point.id)}
-                        className="flex items-center gap-1 text-[11px] font-extrabold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-650 dark:text-indigo-400 hover:bg-indigo-100/60 dark:hover:bg-indigo-900/40 px-3.5 py-2 rounded-lg transition-colors border border-indigo-100/50 dark:border-indigo-950/20 cursor-pointer"
+                        className="flex items-center gap-1 text-[11px] font-extrabold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100/60 dark:hover:bg-indigo-900/40 px-3.5 py-2 rounded-lg transition-colors border border-indigo-100/50 dark:border-indigo-950/20 cursor-pointer"
                       >
                         <Check size={13} /> Save Changes
                       </button>
@@ -328,7 +328,7 @@ export default function OutlineView({ project, onUpdateProject }: OutlineViewPro
               </button>
               <button 
                 type="submit"
-                className="flex-1 bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
               >
                 Add Beat
               </button>

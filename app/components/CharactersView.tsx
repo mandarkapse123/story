@@ -148,7 +148,7 @@ export default function CharactersView({ project, onUpdateProject }: CharactersV
             </div>
             <button 
               onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-1.5 bg-indigo-650 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer border border-transparent"
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer border border-transparent"
             >
               <Plus size={14} /> Add Character
             </button>
@@ -395,7 +395,7 @@ export default function CharactersView({ project, onUpdateProject }: CharactersV
               </button>
               <button 
                 type="submit"
-                className="flex-1 bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
               >
                 Add Character
               </button>

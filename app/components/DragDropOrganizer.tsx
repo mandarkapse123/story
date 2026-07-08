@@ -295,7 +295,7 @@ export function DragDropOrganizer({ project, onUpdateProject, onWriteChapter }: 
               </button>
               <button 
                 type="submit"
-                className="flex-1 bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
               >
                 Add Chapter
               </button>

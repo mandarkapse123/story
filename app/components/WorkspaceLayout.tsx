@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Book, LayoutDashboard, Users, Map, Target, FlaskConical, Lightbulb, 
   ChevronRight, Home, Menu, ChevronLeft, Sparkles, 
@@ -76,7 +76,7 @@ export default function WorkspaceLayout({
     return () => clearTimeout(timer);
   }, [project.id, project.scratchpad, project.title]);
 
-  const saveProjectTitle = useCallback(() => {
+  const saveProjectTitle = () => {
     if (editedTitle.trim() && editedTitle.trim() !== project.title) {
       onUpdateProject({
         ...project,
@@ -84,9 +84,9 @@ export default function WorkspaceLayout({
       });
     }
     setIsEditingTitle(false);
-  }, [project, onUpdateProject, editedTitle]);
+  };
 
-  const debouncedSaveScratchpad = useCallback((text: string) => {
+  const debouncedSaveScratchpad = (text: string) => {
     if (scratchpadTimeoutRef.current) {
       clearTimeout(scratchpadTimeoutRef.current);
     }
@@ -96,7 +96,7 @@ export default function WorkspaceLayout({
         scratchpad: text
       });
     }, 800);
-  }, [project, onUpdateProject]);
+  };
   
   // Profile Modal State
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -149,7 +149,7 @@ export default function WorkspaceLayout({
   const [rejectedTitle, setRejectedTitle] = useState("");
   const [rejectedContent, setRejectedContent] = useState("");
 
-  const handleSaveRejectedIdea = useCallback((e: React.FormEvent) => {
+  const handleSaveRejectedIdea = (e: React.FormEvent) => {
     e.preventDefault();
     if (!rejectedTitle.trim() || !rejectedContent.trim()) return;
 
@@ -169,9 +169,9 @@ export default function WorkspaceLayout({
     setRejectedTitle("");
     setRejectedContent("");
     setIsCreatingRejectedIdea(false);
-  }, [project, onUpdateProject, rejectedTitle, rejectedContent]);
+  };
 
-  const restoreDumpsterItem = useCallback((item: DumpsterItem) => {
+  const restoreDumpsterItem = (item: DumpsterItem) => {
     if (!confirm(`Are you sure you want to restore "${item.title}"?`)) return;
 
     const filteredDumpster = (project.dumpster || []).filter(d => d.id !== item.id);
@@ -236,9 +236,9 @@ export default function WorkspaceLayout({
       });
       alert(`Restored "${item.title}" as a new Research Note!`);
     }
-  }, [project, onUpdateProject]);
+  };
 
-  const permanentlyDeleteDumpsterItem = useCallback((itemId: string) => {
+  const permanentlyDeleteDumpsterItem = (itemId: string) => {
     if (!confirm("Are you sure you want to permanently erase this item?")) return;
     if (!confirm("WARNING: This cannot be undone. Erase forever?")) return;
 
@@ -246,7 +246,7 @@ export default function WorkspaceLayout({
       ...project,
       dumpster: (project.dumpster || []).filter(d => d.id !== itemId)
     });
-  }, [project, onUpdateProject]);
+  };
 
   // Callback to update chapter content in project state
   const handleUpdateChapterContent = (chapterId: string, content: string, wordCount: number) => {
@@ -288,7 +288,7 @@ export default function WorkspaceLayout({
     if (!newResearchTopic.trim() || !newResearchText.trim()) return;
     
     const newNoteObj: ResearchNote = {
-      id: `res-${Date.now()}`,
+      id: generateUniqueId('res'),
       topic: newResearchTopic.trim(),
       note: newResearchText.trim(),
       source: newResearchSource.trim() || "Unspecified Source",
@@ -310,10 +310,66 @@ export default function WorkspaceLayout({
     const topic = note ? note.topic : "this research note";
     if (!confirm(`Are you sure you want to delete the research note "${topic}"?`)) return;
     if (!confirm(`Confirming deletion of "${topic}". This action is permanent. Are you sure?`)) return;
+    
+    // Add to dumpster before deletion
+    const updatedDumpster = [
+      ...(project.dumpster || []),
+      {
+        id: generateUniqueId('dump'),
+        title: note?.topic || "Deleted Research Note",
+        content: `Source: ${note?.source || ""}\nNote: ${note?.note || ""}`,
+        type: "Research Note",
+        date: new Date().toLocaleDateString()
+      }
+    ];
+
     onUpdateProject({
       ...project,
-      researchNotes: (project.researchNotes || []).filter(n => n.id !== id)
+      researchNotes: (project.researchNotes || []).filter(n => n.id !== id),
+      dumpster: updatedDumpster
     });
+  };
+
+  // Research Edit states and helpers
+  const [isEditingResearch, setIsEditingResearch] = useState(false);
+  const [editingResearchId, setEditingResearchId] = useState("");
+  const [editingResearchTopic, setEditingResearchTopic] = useState("");
+  const [editingResearchSource, setEditingResearchSource] = useState("");
+  const [editingResearchNote, setEditingResearchNote] = useState("");
+
+  const handleStartEditResearch = (note: ResearchNote) => {
+    setEditingResearchId(note.id);
+    setEditingResearchTopic(note.topic);
+    setEditingResearchSource(note.source);
+    setEditingResearchNote(note.note);
+    setIsEditingResearch(true);
+  };
+
+  const handleSaveEditResearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingResearchTopic.trim() || !editingResearchNote.trim()) return;
+
+    const updatedNotes = project.researchNotes.map(n => 
+      n.id === editingResearchId 
+        ? { 
+            ...n, 
+            topic: editingResearchTopic.trim(), 
+            source: editingResearchSource.trim() || "Web",
+            note: editingResearchNote.trim() 
+          } 
+        : n
+    );
+
+    onUpdateProject({
+      ...project,
+      researchNotes: updatedNotes
+    });
+
+    setIsEditingResearch(false);
+    setEditingResearchId("");
+    setEditingResearchTopic("");
+    setEditingResearchSource("");
+    setEditingResearchNote("");
   };
 
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -673,7 +729,7 @@ export default function WorkspaceLayout({
                 <>
                   <span 
                     onClick={() => { setEditedTitle(project.title); setIsEditingTitle(true); }}
-                    className="font-semibold text-slate-700 dark:text-slate-300 max-w-[140px] truncate cursor-pointer hover:text-indigo-650 dark:hover:text-indigo-400 border-b border-dashed border-slate-350 dark:border-slate-700 hover:border-indigo-600 transition-all"
+                    className="font-semibold text-slate-700 dark:text-slate-300 max-w-[140px] truncate cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 border-b border-dashed border-slate-355 dark:border-slate-700 hover:border-indigo-600 transition-all"
                     title="Click to rename"
                   >
                     {project.title}
@@ -724,6 +780,7 @@ export default function WorkspaceLayout({
               activeChapterId={currentActiveChapterId}
               onSelectChapter={setActiveChapterId}
               onUpdateChapterContent={handleUpdateChapterContent}
+              onUpdateProject={onUpdateProject}
             />
           )}
 
@@ -990,18 +1047,97 @@ export default function WorkspaceLayout({
                         </div>
                       </div>
                       
-                      {/* Fully visible colored delete button */}
-                      <button 
-                        onClick={() => deleteResearchNote(note.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all shrink-0 ml-4 border border-slate-100 dark:border-slate-800 cursor-pointer"
-                        title="Delete Research Note"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {/* Actions edit and delete buttons */}
+                      <div className="flex gap-1.5 shrink-0 ml-4">
+                        <button 
+                          onClick={() => handleStartEditResearch(note)}
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-805 rounded-lg transition-all shrink-0 border border-slate-100 dark:border-slate-800 cursor-pointer"
+                          title="Edit Research Note"
+                        >
+                          <PenTool size={14} />
+                        </button>
+                        <button 
+                          onClick={() => deleteResearchNote(note.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all shrink-0 border border-slate-100 dark:border-slate-800 cursor-pointer"
+                          title="Delete Research Note"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
               </div>
+
+              {/* EDIT RESEARCH NOTE MODAL */}
+              {isEditingResearch && (
+                <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <form onSubmit={handleSaveEditResearch} className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative">
+                    <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800/80 mb-4">
+                      <div className="flex items-center gap-2">
+                        <FlaskConical size={18} className="text-indigo-500" />
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Edit Research Note</h3>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setIsEditingResearch(false)}
+                        className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4 mb-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Topic / Heading</label>
+                          <input 
+                            type="text" 
+                            value={editingResearchTopic}
+                            onChange={(e) => setEditingResearchTopic(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-855 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-850 dark:text-slate-100"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Reference Origin / URL</label>
+                          <input 
+                            type="text" 
+                            value={editingResearchSource}
+                            onChange={(e) => setEditingResearchSource(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-855 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-850 dark:text-slate-100"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Research Note Content</label>
+                        <textarea 
+                          value={editingResearchNote}
+                          onChange={(e) => setEditingResearchNote(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-850 dark:text-slate-100 h-44 resize-none leading-relaxed"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2.5">
+                      <button 
+                        type="button" 
+                        onClick={() => setIsEditingResearch(false)}
+                        className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-200 cursor-pointer rounded-xl font-bold text-xs py-2"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit" 
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer"
+                      >
+                        Save Reference
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </div>
           )}
 
