@@ -402,7 +402,8 @@ export default function RichTextEditor({
             <div className="flex flex-wrap items-center gap-1.5 pb-3 mb-5 border-b border-slate-100 dark:border-slate-800/80 shrink-0 sticky top-0 bg-white dark:bg-slate-900 z-10 select-none">
               {/* Bold */}
               <button
-                onClick={() => editor.chain().focus().toggleBold().run()}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }}
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   editor.isActive('bold')
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35 font-bold'
@@ -415,7 +416,8 @@ export default function RichTextEditor({
 
               {/* Italic */}
               <button
-                onClick={() => editor.chain().focus().toggleItalic().run()}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run(); }}
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   editor.isActive('italic')
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
@@ -430,7 +432,8 @@ export default function RichTextEditor({
 
               {/* Headings */}
               <button
-                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleHeading({ level: 1 }).run(); }}
                 className={`p-1 text-center w-7 rounded-lg transition-colors cursor-pointer text-xs font-bold ${
                   editor.isActive('heading', { level: 1 })
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
@@ -442,7 +445,8 @@ export default function RichTextEditor({
               </button>
 
               <button
-                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleHeading({ level: 2 }).run(); }}
                 className={`p-1 text-center w-7 rounded-lg transition-colors cursor-pointer text-xs font-bold ${
                   editor.isActive('heading', { level: 2 })
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
@@ -454,7 +458,8 @@ export default function RichTextEditor({
               </button>
 
               <button
-                onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleHeading({ level: 3 }).run(); }}
                 className={`p-1 text-center w-7 rounded-lg transition-colors cursor-pointer text-xs font-bold ${
                   editor.isActive('heading', { level: 3 })
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
@@ -469,7 +474,8 @@ export default function RichTextEditor({
 
               {/* Bullet List */}
               <button
-                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBulletList().run(); }}
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   editor.isActive('bulletList')
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
@@ -482,7 +488,8 @@ export default function RichTextEditor({
 
               {/* Number List */}
               <button
-                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleOrderedList().run(); }}
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   editor.isActive('orderedList')
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
@@ -495,7 +502,8 @@ export default function RichTextEditor({
 
               {/* Blockquote */}
               <button
-                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBlockquote().run(); }}
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   editor.isActive('blockquote')
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/35'
@@ -510,7 +518,8 @@ export default function RichTextEditor({
 
               {/* Undo/Redo */}
               <button
-                onClick={() => editor.chain().focus().undo().run()}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().undo().run(); }}
                 disabled={!editor.can().undo()}
                 className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer transition-colors"
                 title="Undo"
@@ -519,7 +528,8 @@ export default function RichTextEditor({
               </button>
 
               <button
-                onClick={() => editor.chain().focus().redo().run()}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().redo().run(); }}
                 disabled={!editor.can().redo()}
                 className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-805 rounded-lg disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer transition-colors"
                 title="Redo"
