@@ -56,9 +56,21 @@ export default function OutlineView({ project, onUpdateProject }: OutlineViewPro
     if (!confirm(`Are you sure you want to delete the plot beat "${title}"?`)) return;
     if (!confirm(`Confirming deletion of "${title}". Are you absolutely sure?`)) return;
 
+    const updatedDumpster = [
+      ...(project.dumpster || []),
+      {
+        id: `dump-${Date.now()}`,
+        title: beat?.title || "Deleted Plot Beat",
+        content: `Type: ${beat?.type || ""}\nDescription: ${beat?.description || ""}`,
+        type: "Plot Beat",
+        date: new Date().toLocaleDateString()
+      }
+    ];
+
     onUpdateProject({
       ...project,
-      plotBeats: project.plotBeats.filter(pb => pb.id !== id)
+      plotBeats: project.plotBeats.filter(pb => pb.id !== id),
+      dumpster: updatedDumpster
     });
   };
 

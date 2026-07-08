@@ -99,7 +99,9 @@ export default function Home() {
             chapters: p.chapters || [],
             characters: p.characters || [],
             plotBeats: p.plot_beats || [],
-            researchNotes: p.research_notes || []
+            researchNotes: p.research_notes || [],
+            scratchpad: p.scratchpad || "",
+            dumpster: p.dumpster || []
           }));
           setProjects(mappedProjects);
         }
@@ -175,7 +177,9 @@ export default function Home() {
             chapters: p.chapters || [],
             characters: p.characters || [],
             plotBeats: p.plot_beats || [],
-            researchNotes: p.research_notes || []
+            researchNotes: p.research_notes || [],
+            scratchpad: p.scratchpad || "",
+            dumpster: p.dumpster || []
           }));
           setProjects(mappedProjects);
         }
@@ -251,6 +255,8 @@ export default function Home() {
         characters: updatedProj.characters,
         plot_beats: updatedProj.plotBeats,
         research_notes: updatedProj.researchNotes,
+        scratchpad: updatedProj.scratchpad || "",
+        dumpster: updatedProj.dumpster || [],
         updated_at: new Date().toISOString()
       })
       .eq('id', updatedProj.id);
@@ -274,7 +280,9 @@ export default function Home() {
         chapters: newProj.chapters,
         characters: newProj.characters,
         plot_beats: newProj.plotBeats,
-        research_notes: newProj.researchNotes
+        research_notes: newProj.researchNotes,
+        scratchpad: "",
+        dumpster: []
       })
       .select()
       .single();
@@ -296,7 +304,9 @@ export default function Home() {
         chapters: data.chapters || [],
         characters: data.characters || [],
         plotBeats: data.plot_beats || [],
-        researchNotes: data.research_notes || []
+        researchNotes: data.research_notes || [],
+        scratchpad: data.scratchpad || "",
+        dumpster: data.dumpster || []
       };
       setProjects([mappedProj, ...projects]);
       setActiveProjectId(mappedProj.id);
@@ -574,6 +584,7 @@ export default function Home() {
         onSelectProject={(project) => setActiveProjectId(project.id)}
         onAddProject={handleAddProject}
         onDeleteProject={handleDeleteProject}
+        onUpdateProject={handleUpdateProject}
         theme={theme}
         onToggleTheme={handleToggleTheme}
       />

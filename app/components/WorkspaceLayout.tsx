@@ -1,15 +1,16 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Book, LayoutDashboard, Users, Map, Target, FlaskConical, Lightbulb, 
   ChevronRight, Home, Menu, ChevronLeft, Sparkles, 
-  Trash2, Plus, Calendar, Award, LogOut, Settings, User, X, Globe, Sun, Moon, PenTool
+  Trash2, Plus, Calendar, Award, LogOut, Settings, User, X, Globe, Sun, Moon, PenTool,
+  Clipboard
 } from 'lucide-react';
 import { DragDropOrganizer } from './DragDropOrganizer';
 import RichTextEditor from './RichTextEditor';
 import CharactersView from './CharactersView';
 import OutlineView from './OutlineView';
-import { Project, UserProfile, ResearchNote, Chapter, Character, PlotBeat } from '../types';
+import { Project, UserProfile, ResearchNote, Chapter, Character, PlotBeat, DumpsterItem } from '../types';
 
 interface ExtendedWindow extends Window {
   pdfjsLib?: {
@@ -27,6 +28,10 @@ interface ExtendedWindow extends Window {
       }>;
     };
   };
+}
+
+function generateUniqueId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
 
 interface WorkspaceProps {
@@ -53,6 +58,45 @@ export default function WorkspaceLayout({
   const [currentView, setCurrentView] = useState('write');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeChapterId, setActiveChapterId] = useState('');
+
+  // Title editing state
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(project.title);
+
+  // Scratchpad state
+  const [scratchpadText, setScratchpadText] = useState(project.scratchpad || "");
+  const scratchpadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Keep state synced when switching projects
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setScratchpadText(project.scratchpad || "");
+      setEditedTitle(project.title);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [project.id, project.scratchpad, project.title]);
+
+  const saveProjectTitle = useCallback(() => {
+    if (editedTitle.trim() && editedTitle.trim() !== project.title) {
+      onUpdateProject({
+        ...project,
+        title: editedTitle.trim()
+      });
+    }
+    setIsEditingTitle(false);
+  }, [project, onUpdateProject, editedTitle]);
+
+  const debouncedSaveScratchpad = useCallback((text: string) => {
+    if (scratchpadTimeoutRef.current) {
+      clearTimeout(scratchpadTimeoutRef.current);
+    }
+    scratchpadTimeoutRef.current = setTimeout(() => {
+      onUpdateProject({
+        ...project,
+        scratchpad: text
+      });
+    }, 800);
+  }, [project, onUpdateProject]);
   
   // Profile Modal State
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -90,13 +134,119 @@ export default function WorkspaceLayout({
     { id: 'organize', icon: LayoutDashboard, label: 'Organizer' },
     { id: 'characters', icon: Users, label: 'Characters' },
     { id: 'outline', icon: Map, label: 'Outline' },
+    { id: 'scratchpad', icon: Clipboard, label: 'Scratchpad' },
     { id: 'research', icon: FlaskConical, label: 'Research Notes' },
     { id: 'ideas', icon: Lightbulb, label: 'Brainstorm' },
+    { id: 'dumpster', icon: Trash2, label: 'Dumpster' },
   ];
 
   const bottomMenuItems = [
     { id: 'goals', icon: Target, label: 'Goals & Stats' }
   ];
+
+  // Dumpster state and helpers
+  const [isCreatingRejectedIdea, setIsCreatingRejectedIdea] = useState(false);
+  const [rejectedTitle, setRejectedTitle] = useState("");
+  const [rejectedContent, setRejectedContent] = useState("");
+
+  const handleSaveRejectedIdea = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectedTitle.trim() || !rejectedContent.trim()) return;
+
+    const newItem = {
+      id: generateUniqueId('dump'),
+      title: rejectedTitle.trim(),
+      content: rejectedContent.trim(),
+      type: "Idea",
+      date: new Date().toLocaleDateString()
+    };
+
+    onUpdateProject({
+      ...project,
+      dumpster: [...(project.dumpster || []), newItem]
+    });
+
+    setRejectedTitle("");
+    setRejectedContent("");
+    setIsCreatingRejectedIdea(false);
+  }, [project, onUpdateProject, rejectedTitle, rejectedContent]);
+
+  const restoreDumpsterItem = useCallback((item: DumpsterItem) => {
+    if (!confirm(`Are you sure you want to restore "${item.title}"?`)) return;
+
+    const filteredDumpster = (project.dumpster || []).filter(d => d.id !== item.id);
+
+    if (item.type === "Chapter") {
+      const restoredChapter: Chapter = {
+        id: generateUniqueId('chap'),
+        title: item.title,
+        words: item.content.split(/\s+/).filter(Boolean).length || 0,
+        content: item.content
+      };
+      onUpdateProject({
+        ...project,
+        chapters: [...project.chapters, restoredChapter],
+        dumpster: filteredDumpster
+      });
+      alert(`Restored "${item.title}" as a new chapter!`);
+    } else if (item.type === "Character") {
+      const descMatch = item.content.match(/Description:\s*(.*?)\n/);
+      const bioMatch = item.content.match(/Bio:\s*(.*)/);
+      const restoredChar: Character = {
+        id: generateUniqueId('char'),
+        name: item.title,
+        role: "Supporting",
+        description: descMatch ? descMatch[1] : "",
+        avatarColor: "bg-teal-500",
+        bio: bioMatch ? bioMatch[1] : ""
+      };
+      onUpdateProject({
+        ...project,
+        characters: [...project.characters, restoredChar],
+        dumpster: filteredDumpster
+      });
+      alert(`Restored "${item.title}" to your Characters cast!`);
+    } else if (item.type === "Plot Beat") {
+      const descMatch = item.content.match(/Description:\s*(.*)/);
+      const typeMatch = item.content.match(/Type:\s*(.*?)\n/);
+      const restoredBeat: PlotBeat = {
+        id: generateUniqueId('beat'),
+        title: item.title,
+        type: typeMatch ? typeMatch[1] : "Act 1",
+        description: descMatch ? descMatch[1] : item.content
+      };
+      onUpdateProject({
+        ...project,
+        plotBeats: [...project.plotBeats, restoredBeat],
+        dumpster: filteredDumpster
+      });
+      alert(`Restored "${item.title}" to your Outline beats!`);
+    } else {
+      const restoredNote: ResearchNote = {
+        id: generateUniqueId('note'),
+        topic: item.title,
+        note: item.content,
+        source: "Restored from Dumpster",
+        date: new Date().toLocaleDateString()
+      };
+      onUpdateProject({
+        ...project,
+        researchNotes: [...project.researchNotes, restoredNote],
+        dumpster: filteredDumpster
+      });
+      alert(`Restored "${item.title}" as a new Research Note!`);
+    }
+  }, [project, onUpdateProject]);
+
+  const permanentlyDeleteDumpsterItem = useCallback((itemId: string) => {
+    if (!confirm("Are you sure you want to permanently erase this item?")) return;
+    if (!confirm("WARNING: This cannot be undone. Erase forever?")) return;
+
+    onUpdateProject({
+      ...project,
+      dumpster: (project.dumpster || []).filter(d => d.id !== itemId)
+    });
+  }, [project, onUpdateProject]);
 
   // Callback to update chapter content in project state
   const handleUpdateChapterContent = (chapterId: string, content: string, wordCount: number) => {
@@ -502,7 +652,40 @@ export default function WorkspaceLayout({
           <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500 select-none">
             <button onClick={onBackToDashboard} className="hover:text-slate-800 dark:hover:text-slate-200 transition-colors font-semibold">Dashboard</button>
             <ChevronRight size={12} />
-            <span className="font-semibold text-slate-700 dark:text-slate-300 max-w-[140px] truncate">{project.title}</span>
+            <div className="flex items-center gap-1.5 group">
+              {isEditingTitle ? (
+                <input
+                  type="text"
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  onBlur={saveProjectTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveProjectTitle();
+                    if (e.key === 'Escape') {
+                      setEditedTitle(project.title);
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 px-2 py-0.5 rounded border border-indigo-500 font-semibold focus:outline-none text-[11px] w-28 sm:w-40"
+                  autoFocus
+                />
+              ) : (
+                <>
+                  <span 
+                    onClick={() => { setEditedTitle(project.title); setIsEditingTitle(true); }}
+                    className="font-semibold text-slate-700 dark:text-slate-300 max-w-[140px] truncate cursor-pointer hover:text-indigo-650 dark:hover:text-indigo-400 border-b border-dashed border-slate-350 dark:border-slate-700 hover:border-indigo-600 transition-all"
+                    title="Click to rename"
+                  >
+                    {project.title}
+                  </span>
+                  <PenTool 
+                    size={10} 
+                    onClick={() => { setEditedTitle(project.title); setIsEditingTitle(true); }}
+                    className="text-slate-400 hover:text-indigo-600 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity" 
+                  />
+                </>
+              )}
+            </div>
             <ChevronRight size={12} />
             <span className="capitalize text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md border border-indigo-100/30 dark:border-indigo-900/10">{currentView}</span>
           </div>
@@ -681,6 +864,32 @@ export default function WorkspaceLayout({
             </div>
           )}
 
+          {/* Scratchpad Tab (New!) */}
+          {currentView === 'scratchpad' && (
+            <div className="max-w-4xl mx-auto flex flex-col space-y-4">
+              <div className="flex justify-between items-center shrink-0">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 animate-fade-in">
+                    <Clipboard size={18} className="text-indigo-500" />
+                    <span>Temporary Scratchpad</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">A temporary clipboard area to dump writing snippets, links, or notes. Saved automatically.</p>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col shadow-xs min-h-[480px]">
+                <textarea
+                  className="w-full h-full min-h-[420px] bg-transparent resize-none text-xs sm:text-sm text-slate-700 dark:text-slate-200 focus:outline-none leading-relaxed font-sans placeholder-slate-400 dark:placeholder-slate-600"
+                  placeholder="Paste temporary draft paragraphs, links, character details, or outline ideas here..."
+                  value={scratchpadText}
+                  onChange={(e) => {
+                    setScratchpadText(e.target.value);
+                    debouncedSaveScratchpad(e.target.value);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Research Notes Tab (REFORMS!) */}
           {currentView === 'research' && (
             <div className="max-w-4xl mx-auto space-y-6">
@@ -845,6 +1054,128 @@ export default function WorkspaceLayout({
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Dumpster Tab (New!) */}
+          {currentView === 'dumpster' && (
+            <div className="max-w-4xl mx-auto space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 animate-fade-in">
+                    <Trash2 size={18} className="text-indigo-500" />
+                    <span>Ideas Dumpster</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">A safe holding place for deleted chapters, characters, or rejected brainstorm concepts. Restore them anytime.</p>
+                </div>
+                <button
+                  onClick={() => setIsCreatingRejectedIdea(true)}
+                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer border border-transparent"
+                >
+                  <Plus size={13} />
+                  <span>Dump Concept</span>
+                </button>
+              </div>
+
+              {/* Add rejected idea inline form modal */}
+              {isCreatingRejectedIdea && (
+                <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <form onSubmit={handleSaveRejectedIdea} className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative">
+                    <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800/80 mb-4">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Dump Rejected Concept</h3>
+                      <button 
+                        type="button"
+                        onClick={() => setIsCreatingRejectedIdea(false)}
+                        className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="space-y-4 mb-5">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider block mb-1">Concept Title</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g., Jax dies in Act 2" 
+                          value={rejectedTitle}
+                          onChange={(e) => setRejectedTitle(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-855 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider block mb-1">Concept Details</label>
+                        <textarea 
+                          placeholder="Why this was rejected, or what it was. We keep it here in case you want to restore it later." 
+                          value={rejectedContent}
+                          onChange={(e) => setRejectedContent(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100 h-28 resize-none"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2.5">
+                      <button 
+                        type="button" 
+                        onClick={() => setIsCreatingRejectedIdea(false)}
+                        className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850 transition-all font-bold text-xs cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit" 
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-all shadow-sm shadow-indigo-100 dark:shadow-none cursor-pointer"
+                      >
+                        Save to Dumpster
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* List of dumpster items */}
+              <div className="space-y-4">
+                {(project.dumpster || []).length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-64 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900/50 p-6 text-center select-none">
+                    <Trash2 size={36} className="text-slate-400 dark:text-slate-600 mb-2 animate-bounce" />
+                    <h3 className="text-xs font-semibold text-slate-600 dark:text-slate-400">Dumpster is currently empty</h3>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Deleted items will be automatically backed up here.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+                    {(project.dumpster || []).map((item) => (
+                      <div key={item.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-5 rounded-2xl hover:shadow-md hover:border-indigo-400 dark:hover:border-indigo-800 transition-all duration-200 flex flex-col justify-between group">
+                        <div>
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800">{item.type}</span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">{item.date}</span>
+                          </div>
+                          <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 mb-2">{item.title}</h3>
+                          <p 
+                            className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-3 leading-relaxed whitespace-pre-wrap"
+                            dangerouslySetInnerHTML={{ __html: item.content.substring(0, 300) }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-end gap-3 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => restoreDumpsterItem(item)}
+                            className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                          >
+                            Restore
+                          </button>
+                          <span className="text-slate-300 dark:text-slate-800">|</span>
+                          <button
+                            onClick={() => permanentlyDeleteDumpsterItem(item.id)}
+                            className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                          >
+                            Erase Permanently
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

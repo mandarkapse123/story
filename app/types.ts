@@ -43,6 +43,14 @@ export interface UserProfile {
   bio?: string;
 }
 
+export interface DumpsterItem {
+  id: string;
+  title: string;
+  content: string;
+  type: string; // 'Idea' | 'Chapter' | 'Character' | etc.
+  date: string;
+}
+
 export interface Project {
   id: string;
   title: string;
@@ -54,4 +62,6 @@ export interface Project {
   researchNotes: ResearchNote[];
   wordGoal: number; // e.g. 50,000 for novel, 2,000 for article
   dailyGoal: number; // e.g. 500 words/day
+  scratchpad?: string;
+  dumpster?: DumpsterItem[];
 }

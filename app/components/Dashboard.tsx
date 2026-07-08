@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   Plus, BookOpen, FileText, Award, Sparkles, Trash2, 
-  Sun, Moon, X, Target
+  Sun, Moon, X, Target, PenTool
 } from 'lucide-react';
 import { Project } from '../types';
 
@@ -11,6 +11,7 @@ interface DashboardProps {
   onSelectProject: (project: Project) => void;
   onAddProject: (project: Project) => void;
   onDeleteProject: (id: string) => void;
+  onUpdateProject?: (project: Project) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
@@ -20,6 +21,7 @@ export default function Dashboard({
   onSelectProject, 
   onAddProject, 
   onDeleteProject,
+  onUpdateProject,
   theme,
   onToggleTheme
 }: DashboardProps) {
@@ -29,6 +31,34 @@ export default function Dashboard({
   const [newType, setNewType] = useState<'Book' | 'Article'>('Book');
   const [newWordGoal, setNewWordGoal] = useState<number>(50000);
   const [newDailyGoal, setNewDailyGoal] = useState<number>(1000);
+
+  // Rename states
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [renamingProjectId, setRenamingProjectId] = useState("");
+  const [renamingProjectTitle, setRenamingProjectTitle] = useState("");
+
+  const handleRenameClick = (project: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRenamingProjectId(project.id);
+    setRenamingProjectTitle(project.title);
+    setIsRenameModalOpen(true);
+  };
+
+  const handleRenameSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!renamingProjectTitle.trim()) return;
+
+    const proj = projects.find(p => p.id === renamingProjectId);
+    if (proj && onUpdateProject) {
+      onUpdateProject({
+        ...proj,
+        title: renamingProjectTitle.trim()
+      });
+    }
+    setIsRenameModalOpen(false);
+    setRenamingProjectId("");
+    setRenamingProjectTitle("");
+  };
 
   const handleTypeChange = (type: 'Book' | 'Article') => {
     setNewType(type);
@@ -170,13 +200,22 @@ export default function Dashboard({
                       {project.type}
                     </span>
 
-                    <button
-                      onClick={(e) => handleDelete(project.id, e)}
-                      className="p-1 text-slate-400 hover:text-rose-500 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-lg transition-all"
-                      title="Delete Project Draft"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => handleRenameClick(project, e)}
+                        className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-lg transition-all"
+                        title="Rename Project Draft"
+                      >
+                        <PenTool size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => handleDelete(project.id, e)}
+                        className="p-1 text-slate-400 hover:text-rose-500 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-lg transition-all"
+                        title="Delete Project Draft"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
 
                   <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-650 dark:group-hover:text-indigo-400 transition-colors line-clamp-2 leading-snug">
@@ -293,6 +332,55 @@ export default function Dashboard({
                 className="flex-1 bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
               >
                 Create Project
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* RENAME PROJECT MODAL */}
+      {isRenameModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleRenameSubmit} className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800/80 mb-4">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <PenTool size={16} className="text-indigo-500" />
+                <span>Rename Draft</span>
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setIsRenameModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="space-y-1 mb-5">
+              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase block mb-1">New Title</label>
+              <input 
+                type="text" 
+                value={renamingProjectTitle}
+                onChange={(e) => setRenamingProjectTitle(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button 
+                type="button"
+                onClick={() => setIsRenameModalOpen(false)}
+                className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 cursor-pointer rounded-xl font-bold text-xs py-2"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2 rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                Save Name
               </button>
             </div>
           </form>

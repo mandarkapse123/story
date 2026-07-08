@@ -71,9 +71,21 @@ export default function CharactersView({ project, onUpdateProject }: CharactersV
     if (!confirm(`Are you sure you want to delete the character profile of "${name}"?`)) return;
     if (!confirm(`WARNING: This action is permanent. Are you absolutely certain you want to erase "${name}" from your cast?`)) return;
 
+    const updatedDumpster = [
+      ...(project.dumpster || []),
+      {
+        id: `dump-${Date.now()}`,
+        title: char?.name || "Deleted Character",
+        content: `Role: ${char?.role || ""}\nDescription: ${char?.description || ""}\nBio: ${char?.bio || ""}`,
+        type: "Character",
+        date: new Date().toLocaleDateString()
+      }
+    ];
+
     onUpdateProject({
       ...project,
-      characters: project.characters.filter(c => c.id !== id)
+      characters: project.characters.filter(c => c.id !== id),
+      dumpster: updatedDumpster
     });
 
     setSelectedChar(null);

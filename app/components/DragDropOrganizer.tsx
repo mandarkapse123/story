@@ -59,9 +59,21 @@ export function DragDropOrganizer({ project, onUpdateProject, onWriteChapter }: 
     if (!confirm(`Are you sure you want to delete the chapter "${title}"?`)) return;
     if (!confirm(`WARNING: All your writing in "${title}" will be permanently erased. Are you 100% sure?`)) return;
     
+    const updatedDumpster = [
+      ...(project.dumpster || []),
+      {
+        id: `dump-${Date.now()}`,
+        title: chap?.title || "Deleted Chapter",
+        content: chap?.content || "",
+        type: "Chapter",
+        date: new Date().toLocaleDateString()
+      }
+    ];
+
     onUpdateProject({
       ...project,
-      chapters: project.chapters.filter(c => c.id !== id)
+      chapters: project.chapters.filter(c => c.id !== id),
+      dumpster: updatedDumpster
     });
   };
 
