@@ -65,7 +65,7 @@ export default function Home() {
         if (!confirmMigration) return;
 
         for (const proj of legacyProjects) {
-          await supabase.from('projects').insert({
+          await supabase.from('storyforge_projects').insert({
             user_id: userId,
             title: proj.title,
             type: proj.type,
@@ -83,7 +83,7 @@ export default function Home() {
         
         // Reload project list
         const { data: refreshed } = await supabase
-          .from('projects')
+          .from('storyforge_projects')
           .select('*')
           .eq('user_id', userId)
           .order('updated_at', { ascending: false });
@@ -114,7 +114,7 @@ export default function Home() {
       try {
         // 1. Fetch Profile
         const { data: profileData } = await supabase
-          .from('profiles')
+          .from('storyforge_profiles')
           .select('*')
           .eq('id', userObj.id)
           .single();
@@ -130,7 +130,7 @@ export default function Home() {
           // Create user profile row automatically for Google signups
           const tempName = userObj.user_metadata?.full_name || userObj.email?.split('@')[0] || "Author";
           const { error: profileErr } = await supabase
-            .from('profiles')
+            .from('storyforge_profiles')
             .insert({
               id: userObj.id,
               name: tempName,
@@ -159,7 +159,7 @@ export default function Home() {
 
         // 2. Fetch Projects
         const { data: projectsData } = await supabase
-          .from('projects')
+          .from('storyforge_projects')
           .select('*')
           .eq('user_id', userObj.id)
           .order('updated_at', { ascending: false });
@@ -242,7 +242,7 @@ export default function Home() {
     setProjects(projects.map(p => p.id === updatedProj.id ? updatedProj : p));
 
     const { error } = await supabase
-      .from('projects')
+      .from('storyforge_projects')
       .update({
         title: updatedProj.title,
         word_goal: updatedProj.wordGoal,
@@ -264,7 +264,7 @@ export default function Home() {
     if (!currentUser) return;
 
     const { data, error } = await supabase
-      .from('projects')
+      .from('storyforge_projects')
       .insert({
         user_id: currentUser.id,
         title: newProj.title,
@@ -316,7 +316,7 @@ export default function Home() {
     }
 
     const { error } = await supabase
-      .from('projects')
+      .from('storyforge_projects')
       .delete()
       .eq('id', id);
 
@@ -331,7 +331,7 @@ export default function Home() {
     setProfile(updatedProfile);
 
     const { error } = await supabase
-      .from('profiles')
+      .from('storyforge_profiles')
       .update({
         name: updatedProfile.name,
         pen_name: updatedProfile.penName,
@@ -399,7 +399,7 @@ export default function Home() {
     if (data.user) {
       // Create user profile row
       const { error: profileErr } = await supabase
-        .from('profiles')
+        .from('storyforge_profiles')
         .insert({
           id: data.user.id,
           name: loginName.trim(),
