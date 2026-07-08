@@ -55,8 +55,13 @@ body {
   color: #334155; /* slate-700 */
 }
 
-.dark .ProseMirror {
-  color: #cbd5e1; /* slate-300 */
+.dark .ProseMirror,
+.dark .ProseMirror p,
+.dark .ProseMirror h1,
+.dark .ProseMirror h2,
+.dark .ProseMirror h3,
+.dark .ProseMirror li {
+  color: #cbd5e1 !important;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
